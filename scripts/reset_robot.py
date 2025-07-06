@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from xarm.wrapper import XArmAPI
-
+import random
 
 def main(robot: str = "xarm6",
          ip: str = "192.168.1.235",
@@ -28,7 +28,7 @@ def main(robot: str = "xarm6",
 
     # switch to position control (mode 0) and move
     print(f"current position: {np.asarray(arm.get_position_aa(is_radian=True)[1])}")
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     
     arm.set_mode(0)
     arm.set_state(0)
@@ -47,8 +47,31 @@ def main(robot: str = "xarm6",
 if __name__ == "__main__":
     ROBOT = "xarm6"                 # "xarm6" | "lite6" | "uf850"
     IP    = "192.168.1.235"                    # None → use default for ROBOT
-    POSE  = [481, 48.4, 350, -180, -2, 3.6]                   # None → use robot’s default pose
+    # randomized_pose = [420, -110, 310, -180, 0, 0]  # None → use robot’s default pose
 
-    # POSE example: [300, 50, 350, -180, 0, 0]
+    central_pose = [420, -110, 310, -180, 0, 0]
 
-    main(robot=ROBOT, ip=IP, pose=POSE)
+    # Custom random ranges for each element in the pose
+    random_ranges = [
+        (20, 20),  # For X-axis (420)
+        (20, 20),  # For Y-axis (-90)
+        (10, 10), # For Z-axis (300)
+        (5, 5),  # For W-axis (-180)
+        (0, 0),   # For 5th element (0)
+        (5, 5)    # For 6th element (0)
+    ]
+
+    # Define a function to randomize the pose with custom ranges
+    def randomize_pose(pose, ranges):
+        return [
+            p + random.randint(-r[0], r[1])  # Apply random variation within specified range
+            for p, r in zip(pose, ranges)
+        ]
+
+    # Randomize the central pose with custom ranges
+    randomized_pose = randomize_pose(central_pose, random_ranges)
+
+    
+    print(f"Randomized pose: {randomized_pose}")
+    # import pdb; pdb.set_trace()
+    main(robot=ROBOT, ip=IP, pose=randomized_pose)

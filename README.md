@@ -75,6 +75,12 @@ v4l2-ctl --list-devices
 # Launch Webcam camera node
 python scripts/camera_node.py --camera-ref webcam_0 --use-rgb --visualization --img-h 1080 --img-w 1920 --fps 30 --camera-address '/dev/video0'
 
+# Launch Left Webcam camera node
+python scripts/camera_node.py --camera-ref webcam_1 --use-rgb --visualization --img-h 1080 --img-w 1920 --fps 30 --camera-address '/dev/video2'
+
+# Launch Right Webcam camera node
+python scripts/camera_node.py --camera-ref webcam_2 --use-rgb --visualization --img-h 1080 --img-w 1920 --fps 30 --camera-address '/dev/video0'
+
 # Launch RealSense camera node
 python scripts/camera_node.py --camera-ref rs_1 --use-rgb  --visualization --img-h 480 --img-w 640 --fps 30
 ```

@@ -160,7 +160,7 @@ class UfactoryDataCollection():
             #     break
             # start = True
 
-            if i % (self.control_frequency % self.demo_save_frequency) == 0:
+            if i % (self.control_frequency / self.demo_save_frequency) == 0:
                 # Load the observation data into CPU memory
                 for camera_id in self.camera_ids:
                     img_info = cam_interfaces[camera_id].get_img_info()
@@ -196,7 +196,7 @@ class UfactoryDataCollection():
             action, action_grasp, action_hot, stop_collection, over = input2action(device=device)
             gripper_state = action_grasp # 1 for grasp, 0 for release
 
-            if i % (self.control_frequency % self.demo_save_frequency) == 0:
+            if i % (self.control_frequency / self.demo_save_frequency) == 0:
                 self.obs_action_data["action_grasp"].append(action_grasp)
                 self.obs_action_data["action"].append(action)
                 self.obs_action_data["action_hot"].append(action_hot)# delta action is the difference between the target action and the current end-effector state
