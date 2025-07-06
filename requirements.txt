@@ -1,0 +1,8 @@
+scipy
+pyserial>=3.4
+opencv-python>=4.7.0
+matplotlib
+pyyaml
+redis
+easydict
+hydra-core

@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.ply
+*.xml
+*.iml
+.vscode/
+.idea/
+.ideadata/
+data/
+*.data
+.DS_Store
+Thumbs.db
+demos_collected/
+outputs/
