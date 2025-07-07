@@ -175,9 +175,6 @@ class cam_node_base():
                     self.last_cam_retrieve_time = time.time()
                     return {"color": frame}
 
-
-
-
                 # print(f"time_gap: {time.time() - self.last_cam_retrieve_time if self.last_cam_retrieve_time else 0}")
 
                 # self.last_cam_retrieve_time = time.time()

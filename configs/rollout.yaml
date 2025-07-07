@@ -1,9 +1,0 @@
-# Rollout
-obs_cfg: "configs/real_robot_observation_cfg.yml"
-robot: "xarm6"
-ip: "192.168.1.235"
-controller_type: "cartsian_servo_position"
-FT_option: true
-max_steps: 15000
-control_frequency: 50
-policy_frequency: 10
