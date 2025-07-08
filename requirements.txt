@@ -6,3 +6,5 @@ pyyaml
 redis
 easydict
 hydra-core
+redis
+easydict

@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import roboticstoolbox as rtb
+# import roboticstoolbox as rtb
 from scipy.spatial.transform import Rotation
 
 def mat2pos_axis(mat):
@@ -221,6 +221,60 @@ if __name__ == "__main__":
     a = np.array([0.41538592,  0.30989957, - 0.33393304, - 1.5581526, - 0.05739241,  0.31106314])
     a_A = convert_pos_axis_angle_singularity(a)
     print(a_A)
+
+def action_interpolation(actions: np.ndarray, target_T: int) -> np.ndarray:
+    """
+    Upsample a batch of actions from shape (B, T_old, 7)
+    to shape (B, target_T, 7) using linear interpolation.
+
+    Parameters
+    ----------
+    actions   : np.ndarray
+        Shape (B, T_old, 7).  Order per action:
+        [x, y, z, rx, ry, rz, grasp]
+        rx,ry,rz are axis-angle (rad) *absolute* rotations.
+    target_T  : int
+        Desired number of timesteps after interpolation
+        (e.g. 50 when you go from 10 Hz to 50 Hz).
+
+    Returns
+    -------
+    np.ndarray
+        Shape (B, target_T, 7)
+    """
+    B, T_old, D = actions.shape
+    if D != 7:
+        raise ValueError("actions must have last-dimension size 7")
+
+    if T_old == target_T:               # nothing to do
+        return actions.copy()
+
+    # -- construct old/new time axes on [0, 1] --
+    t_old = np.linspace(0.0, 1.0, T_old)
+    t_new = np.linspace(0.0, 1.0, target_T)
+
+    # allocate output
+    out = np.empty((B, target_T, 7), dtype=actions.dtype)
+
+    # ---- 1. xyz & rx,ry,rz: plain linear interpolation ----
+    for dim in range(6):                # dims 0…5
+        # np.interp is 1-D, so we loop over batch
+        for b in range(B):
+            out[b, :, dim] = np.interp(t_new, t_old, actions[b, :, dim])
+
+    # ---- 2. grasp: forward-fill (step) so it stays 0/1 ----
+    #   alternative: round(linear_interp) if you prefer a soft transition
+    grasp_out = np.empty((B, target_T), dtype=actions.dtype)
+    for b in range(B):
+        # indices where grasp changes in original sequence
+        step_func = actions[b, :, 6]
+        # forward-fill by taking the value of the nearest earlier keyframe
+        indices = np.searchsorted(t_old, t_new, side="right") - 1
+        indices = np.clip(indices, 0, T_old - 1)
+        grasp_out[b] = step_func[indices]
+    out[:, :, 6] = grasp_out
+
+    return out
 
 
 
