@@ -137,6 +137,8 @@ class FTMonitorServer:
                         # Expected message format:
                         # {"type": "ft", "count": int, "time": float, "ft": [6 floats],
                         #  "save": bool, "save_path": str or None}
+                        # print("Received message:", message)
+                        # print("Received time cost:", time.time()-message["time"])
                         if not isinstance(message, dict) or message.get("type") != "ft":
                             continue
                         ft_vals = message.get("ft", None)

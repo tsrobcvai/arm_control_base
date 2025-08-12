@@ -8,5 +8,6 @@ max_steps: 15000
 control_frequency: 50
 save2memory_first: true
 FT_option: true
+FT_initial_zero: true
 cam_necessary: true
 demo_save_frequency: 10

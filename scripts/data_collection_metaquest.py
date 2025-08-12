@@ -14,8 +14,11 @@ from xarm.x3.code import APIState
 import hydra
 from omegaconf import DictConfig
 from cam_base.camera_redis_interface import CameraRedisSubInterface
-from utils import YamlConfig
 from xarm.wrapper import XArmAPI
+try:
+    from arm_control_base.utils import YamlConfig
+except ImportError:
+    from utils import YamlConfig
 
 # Function to convert input from the device to an action for the robot arm
 def input2action(device, controller_type="cartsian_servo_position"):
@@ -77,6 +80,7 @@ class UfactoryDataCollection():
                  save2memory_first=False,
                  control_frequency=50,
                  FT_option=True,
+                 FT_initial_zero = True,
                  cam_necessary=True,
                  demo_save_frequency=10,
                  ):
@@ -89,6 +93,7 @@ class UfactoryDataCollection():
         self.save2memory_first = save2memory_first
         self.control_frequency = control_frequency
         self.FT_option = FT_option
+        self.FT_initial_zero = FT_initial_zero
         self.cam_necessary = cam_necessary
         self.demo_save_frequency = demo_save_frequency
 
@@ -132,7 +137,9 @@ class UfactoryDataCollection():
         # Initialize the FT sensor
         if self.FT_option:
             arm.ft_sensor_enable(1)
-            arm.ft_sensor_set_zero()
+            if self.FT_initial_zero:
+                # import pdb;pdb.set_trace()
+                arm.ft_sensor_set_zero()
             time.sleep(0.2)
             arm.ft_sensor_app_set(1)
             arm.set_state(0)
@@ -160,7 +167,7 @@ class UfactoryDataCollection():
             #     break
             # start = True
 
-            if i % (self.control_frequency / self.demo_save_frequency) == 0:
+            if i % (self.control_frequency / self.demo_save_frequency) == 1:
                 # Load the observation data into CPU memory
                 for camera_id in self.camera_ids:
                     img_info = cam_interfaces[camera_id].get_img_info()
@@ -181,6 +188,7 @@ class UfactoryDataCollection():
                     if code == 0:
                         self.obs_action_data["FT_raw"].append(arm.ft_raw_force)
                         self.obs_action_data["FT_processed"].append(arm.ft_ext_force)
+                        print(f"FT sensor data: {arm.ft_ext_force}")
                     else:
                         raise Exception(f"Failed to get FT sensor data: {code}")
 
@@ -196,7 +204,7 @@ class UfactoryDataCollection():
             action, action_grasp, action_hot, stop_collection, over = input2action(device=device)
             gripper_state = action_grasp # 1 for grasp, 0 for release
 
-            if i % (self.control_frequency / self.demo_save_frequency) == 0:
+            if i % (self.control_frequency / self.demo_save_frequency) == 1:
                 self.obs_action_data["action_grasp"].append(action_grasp)
                 self.obs_action_data["action"].append(action)
                 self.obs_action_data["action_hot"].append(action_hot)# delta action is the difference between the target action and the current end-effector state
@@ -234,8 +242,9 @@ class UfactoryDataCollection():
 
             # perform the action
             action = action[:6]  # only take the first 6 elements for xarm
-            print(f"Action: {action}, Grasp: {action_grasp}")
+            # print(f"Action: {action}, Grasp: {action_grasp}")
             # import pdb; pdb.set_trace()
+
             arm.set_servo_cartesian_aa(action, speed=20, mvacc=200, is_radian=True) # action, is absolute pose list [x, y, z, rx, ry, rz] axis angles in radian
 
             # control frequency control
@@ -330,6 +339,7 @@ def main(cfg: DictConfig):
         save2memory_first=cfg.save2memory_first,
         control_frequency=cfg.control_frequency,
         FT_option=cfg.FT_option,
+        FT_initial_zero = cfg.FT_initial_zero,
         cam_necessary=cfg.cam_necessary,
         demo_save_frequency = cfg.demo_save_frequency,
     )
