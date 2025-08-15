@@ -189,6 +189,9 @@ class UfactoryDataCollection():
                         self.obs_action_data["FT_raw"].append(arm.ft_raw_force)
                         self.obs_action_data["FT_processed"].append(arm.ft_ext_force)
                         print(f"FT sensor data: {arm.ft_ext_force}")
+                        # import ipdb; ipdb.set_trace()
+                        # assert arm.ft_ext_force[4] <= 2.4 # TODO: COmment out this, just for debugging
+                        
                     else:
                         raise Exception(f"Failed to get FT sensor data: {code}")
 
@@ -211,9 +214,11 @@ class UfactoryDataCollection():
 
             # import pdb;pdb.set_trace()
             if action_grasp == 1:
-                code, ret = arm.robotiq_close(wait=False)
+                # code, ret = arm.robotiq_close(wait=False)
+                code, ret = arm.robotiq_set_position(pos= 255, wait=False)
             elif action_grasp == -1:
                 code, ret = arm.robotiq_open(wait=False)
+                
             else:
                 raise ValueError(f"Invalid action_grasp value: {action_grasp}")
             
@@ -244,7 +249,6 @@ class UfactoryDataCollection():
             action = action[:6]  # only take the first 6 elements for xarm
             # print(f"Action: {action}, Grasp: {action_grasp}")
             # import pdb; pdb.set_trace()
-
             arm.set_servo_cartesian_aa(action, speed=20, mvacc=200, is_radian=True) # action, is absolute pose list [x, y, z, rx, ry, rz] axis angles in radian
 
             # control frequency control
@@ -319,7 +323,15 @@ class UfactoryDataCollection():
                 for camera_id in self.camera_ids:
                     for img_info in data[f"camera_{camera_id}"]:
                         if "color_image_data" in img_info:
-                            success = cv2.imwrite(img_info["color_img_name"] + ".jpg", img_info["color_image_data"])
+                            if img_info["color_img_name"]== "":
+                                import ipdb; ipdb.set_trace()
+                                pass
+                            if os.path.isdir(os.path.join(os.getcwd(), "arm_control_base")): # TODO: improve path import
+                                success = cv2.imwrite("arm_control_base/" + img_info["color_img_name"] + ".jpg", img_info["color_image_data"])
+                                # import ipdb; ipdb.set_trace()
+                            else:
+                                success = cv2.imwrite(img_info["color_img_name"] + ".jpg", img_info["color_image_data"])
+                            assert success, f"Failed to save image {img_info['color_img_name']}"
                             if not success:
                                 print("failed saving imgs")
                             del img_info["color_image_data"]

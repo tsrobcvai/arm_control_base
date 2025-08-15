@@ -72,7 +72,7 @@ if __name__ == "__main__":
     # Randomize the central pose with custom ranges
     randomized_pose = randomize_pose(central_pose, random_ranges)
 
-    # randomized_pose = [420, -110, 310, -180, 0, 0]  # None → use robot’s default pose
+    # randomized_pose = [413., -109.,  320., -183.,    0.,   -4]  # None → use robot’s default pose
 
     
     print(f"Randomized pose: {randomized_pose}")
