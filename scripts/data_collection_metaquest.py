@@ -15,6 +15,7 @@ import hydra
 from omegaconf import DictConfig
 from cam_base.camera_redis_interface import CameraRedisSubInterface
 from xarm.wrapper import XArmAPI
+from ft_sensor_base.read_ft import robot_port_reader
 try:
     from arm_control_base.utils import YamlConfig
 except ImportError:
@@ -47,7 +48,6 @@ def input2action(device, controller_type="cartsian_servo_position"):
 
     # not return target_pose_mat
     return action, grasp_val, action_hot, stop, over
-
 
 # # Safety control function to ensure the target action is within the robot's operational limits
 # def safety_control(target_action, robot_type="xarm6"):
@@ -132,7 +132,8 @@ class UfactoryDataCollection():
         arm = XArmAPI(ip)
         arm.motion_enable(enable=True)
         arm.set_mode(1)
-        arm.set_state(0)\
+        arm.set_state(0)
+        ft_reader = robot_port_reader(ip)
         
         # Initialize the FT sensor
         if self.FT_option:
@@ -184,16 +185,19 @@ class UfactoryDataCollection():
                         self.obs_action_data[f"camera_{camera_id}"].append(img_info)
 
                 if self.FT_option:
-                    code, _ = arm.get_ft_sensor_data()
-                    if code == 0:
-                        self.obs_action_data["FT_raw"].append(arm.ft_raw_force)
-                        self.obs_action_data["FT_processed"].append(arm.ft_ext_force)
-                        print(f"FT sensor data: {arm.ft_ext_force}")
-                        # import ipdb; ipdb.set_trace()
-                        # assert arm.ft_ext_force[4] <= 2.4 # TODO: COmment out this, just for debugging
-                        
-                    else:
-                        raise Exception(f"Failed to get FT sensor data: {code}")
+                    # 5 HZ read FT sensor data
+                    # code, _ = arm.get_ft_sensor_data()
+                    # if code == 0:
+                    #     self.obs_action_data["FT_raw"].append(arm.ft_raw_force)
+                    #     self.obs_action_data["FT_processed"].append(arm.ft_ext_force)
+                    #     print(f"FT sensor data: {arm.ft_ext_force}")
+                    # else:
+                    #     raise Exception(f"Failed to get FT sensor data: {code}")
+
+                    # high to 200 hz read FT sensor data
+                    raw_ft_data, processed_ft_data = ft_reader.read_ft_data()
+                    self.obs_action_data["FT_raw"].append(raw_ft_data)
+                    self.obs_action_data["FT_processed"].append(processed_ft_data)
 
                 # save states
                 ee_state = arm.get_position_aa(is_radian=True)[1] # axis angles
