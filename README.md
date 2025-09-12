@@ -18,15 +18,13 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvi
 pip install -r ./requirements.txt
 ```
 
-Install ufactory API, and download  from source code [XArm Python SDK](https://github.com/xArm-Developer/xArm-Python-SDK/tree/a54b2fd1922d3245f1f78c8e518871d4760ead1c)
+Install ufactory API (source code [XArm Python SDK](https://github.com/xArm-Developer/xArm-Python-SDK/tree/a54b2fd1922d3245f1f78c8e518871d4760ead1c))
 
 ```bash
-git clone https://github.com/xArm-Developer/xArm-Python-SDK.git
+git clone https://github.com/xArm-Developer/xArm-Python-SDK.git 
 cd xArm-Python-SDK
-# Install according to official instructions
-Install from pypi
+pip install -e .
 ```
-
 
 ## Teleoperation using Meta quest 2
 ### Installation
