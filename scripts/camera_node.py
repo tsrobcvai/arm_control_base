@@ -100,7 +100,7 @@ class cam_node_base():
                 
                 pipeline = rs.pipeline()
                 config = rs.config()
-                
+                # import ipdb; ipdb.set_trace()
                 if node_config.use_color:
                     config.enable_stream(rs.stream.color, self.args.img_w, self.args.img_h, rs.format.bgr8, self.args.fps)
                 if node_config.use_depth:
@@ -116,22 +116,22 @@ class cam_node_base():
                     color_sensor.set_option(rs.option.exposure, 100) 
                 
                 print("RealSense camera initialized with optimized settings")
-
-    #             pipeline.start(config)
                 print("RealSense camera initialized successfully")
                 
                 def get_last_obs():
                     try:
+                        align = rs.align(rs.stream.color)
                         frames = pipeline.wait_for_frames()
+                        aligned = align.process(frames)
+
                         result = {}
-                        
                         if node_config.use_color:
-                            color_frame = frames.get_color_frame()
+                            color_frame = aligned.get_color_frame()
                             if color_frame:
                                 result["color"] = np.asanyarray(color_frame.get_data())
                         
                         if node_config.use_depth:
-                            depth_frame = frames.get_depth_frame()
+                            depth_frame = aligned.get_depth_frame()
                             if depth_frame:
                                 result["depth"] = np.asanyarray(depth_frame.get_data())
                         
@@ -264,7 +264,7 @@ class cam_node_base():
                         if self.args.rgb_convention == "rgb":
                             display_img = cv2.cvtColor(display_img, cv2.COLOR_RGB2BGR)
 
-                        scale = 0.5  # half size
+                        scale = 0.75  # half size
                         h, w = display_img.shape[:2]
                         new_size = (int(w*scale), int(h*scale))
                         display_img = cv2.resize(display_img, new_size)
@@ -272,6 +272,11 @@ class cam_node_base():
                         
                     if "depth" in imgs:
                         depth_display = (imgs["depth"] * 0.001).astype(np.float32)
+
+                        scale = 0.75  # half size
+                        h, w = depth_display.shape[:2]
+                        new_size = (int(w*scale), int(h*scale))
+                        depth_display = cv2.resize(depth_display, new_size)
                         cv2.imshow(f"Depth {camera_name}", depth_display)
                         
                     if cv2.waitKey(10) & 0xFF == ord('q'):
