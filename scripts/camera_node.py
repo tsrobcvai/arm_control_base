@@ -144,6 +144,58 @@ class cam_node_base():
                 print("pyrealsense2 not installed")
                 return
 
+        elif camera_type == "zed":
+
+            def bgra_to_rgb(img_bgra: np.ndarray) -> np.ndarray:
+                """Convert BGRA uint8 image to RGB uint8 (3 channels)."""
+                if img_bgra.ndim == 3 and img_bgra.shape[2] == 4:
+                    rgb = cv2.cvtColor(img_bgra, cv2.COLOR_BGRA2RGB)
+                    return np.ascontiguousarray(rgb)
+                elif img_bgra.ndim == 3 and img_bgra.shape[2] == 3:
+                    # Already 3 channels; assume BGR from OpenCV, convert to RGB
+                    rgb = cv2.cvtColor(img_bgra, cv2.COLOR_BGR2RGB)
+                    return np.ascontiguousarray(rgb)
+                else:
+                    raise ValueError(f"Unexpected image shape {img_bgra.shape} (expected HxWx4 BGRA or HxWx3 BGR).")
+
+            # ZED camera
+            try:
+                import pyzed.sl as sl
+
+                init = sl.InitParameters()
+                init.depth_mode = sl.DEPTH_MODE.NONE
+                init.coordinate_units = sl.UNIT.METER
+                if self.args.img_w == 1920:
+                    init.camera_resolution = sl.RESOLUTION.HD1080
+                    init.camera_fps = self.args.fps
+                elif self.args.img_w == 1280:
+                    init.camera_resolution = sl.RESOLUTION.HD720
+                    init.camera_fps = self.args.fps
+                else:
+                    raise ValueError(f"Unsupported resolution: {self.args.img_w}")
+
+                cam = sl.Camera()
+                status = cam.open(init)
+                if status != sl.ERROR_CODE.SUCCESS:
+                    print(f"[ERROR] ZED open failed: {status}. Is the camera connected and SDK installed?", file=sys.stderr)
+
+                def get_last_obs():
+                    while True:
+                        if self.last_cam_retrieve_time is None:
+                            self.last_cam_retrieve_time = time.time()
+                        while time.time() - self.last_cam_retrieve_time < (1.0 / self.args.fps):
+                            time.sleep(0.0001)                     
+                        # --- Retrieve rectified left/right images (BGRA by default)
+                        left_mat, right_mat = sl.Mat(), sl.Mat()
+                        cam.retrieve_image(left_mat, sl.VIEW.LEFT)    # rectified, undistorted
+                        cam.retrieve_image(right_mat, sl.VIEW.RIGHT)  # rectified, undistorted
+                        left_bgra = left_mat.get_data()
+                        right_bgra = right_mat.get_data()
+                        left_rgb = bgra_to_rgb(left_bgra)
+                        right_rgb = bgra_to_rgb(right_bgra)
+                        print(f"time_gap: {time.time() - self.last_cam_retrieve_time if self.last_cam_retrieve_time else 0}")
+                        self.last_cam_retrieve_time = time.time()
+                        return {"left_rgb": left_rgb, "right_rgb": right_rgb}
 
         elif camera_type in ["webcam", "gopro"]:
             # Always use the camera address for webcam/gopro
