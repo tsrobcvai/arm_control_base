@@ -92,7 +92,7 @@ class cam_node_base():
         # Initialize camera
         pipeline = None
         cap = None
-        
+        # import pdb;pdb.set_trace()
         if camera_type == "rs":
             # RealSense camera
             try:
@@ -143,7 +143,7 @@ class cam_node_base():
             except ImportError:
                 print("pyrealsense2 not installed")
                 return
-
+            
         elif camera_type == "zed":
 
             def bgra_to_rgb(img_bgra: np.ndarray) -> np.ndarray:
@@ -159,43 +159,52 @@ class cam_node_base():
                     raise ValueError(f"Unexpected image shape {img_bgra.shape} (expected HxWx4 BGRA or HxWx3 BGR).")
 
             # ZED camera
-            try:
-                import pyzed.sl as sl
+            import pyzed.sl as sl
 
-                init = sl.InitParameters()
-                init.depth_mode = sl.DEPTH_MODE.NONE
-                init.coordinate_units = sl.UNIT.METER
-                if self.args.img_w == 1920:
-                    init.camera_resolution = sl.RESOLUTION.HD1080
-                    init.camera_fps = self.args.fps
-                elif self.args.img_w == 1280:
-                    init.camera_resolution = sl.RESOLUTION.HD720
-                    init.camera_fps = self.args.fps
-                else:
-                    raise ValueError(f"Unsupported resolution: {self.args.img_w}")
+            init = sl.InitParameters()
+            init.depth_mode = sl.DEPTH_MODE.NONE
+            init.coordinate_units = sl.UNIT.METER
+            if self.args.img_w == 1920:
+                init.camera_resolution = sl.RESOLUTION.HD1080
+                init.camera_fps = self.args.fps
+            elif self.args.img_w == 1280:
+                init.camera_resolution = sl.RESOLUTION.HD720
+                init.camera_fps = self.args.fps
+            else:
+                raise ValueError(f"Unsupported resolution: {self.args.img_w}")
 
-                cam = sl.Camera()
-                status = cam.open(init)
-                if status != sl.ERROR_CODE.SUCCESS:
-                    print(f"[ERROR] ZED open failed: {status}. Is the camera connected and SDK installed?", file=sys.stderr)
+            cam = sl.Camera()
+            status = cam.open(init)
+            if status != sl.ERROR_CODE.SUCCESS:
+                print(f"[ERROR] ZED open failed: {status}. Is the camera connected and SDK installed?", file=sys.stderr)
+                sys.exit(1)
+            runtime = sl.RuntimeParameters()
+            for _ in range(8):
+                if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
+                    time.sleep(0.01)
+            # Final grab for capture
+            if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
+                raise RuntimeError("Failed to grab a frame from ZED.")
 
-                def get_last_obs():
-                    while True:
-                        if self.last_cam_retrieve_time is None:
-                            self.last_cam_retrieve_time = time.time()
-                        while time.time() - self.last_cam_retrieve_time < (1.0 / self.args.fps):
-                            time.sleep(0.0001)                     
-                        # --- Retrieve rectified left/right images (BGRA by default)
-                        left_mat, right_mat = sl.Mat(), sl.Mat()
-                        cam.retrieve_image(left_mat, sl.VIEW.LEFT)    # rectified, undistorted
-                        cam.retrieve_image(right_mat, sl.VIEW.RIGHT)  # rectified, undistorted
-                        left_bgra = left_mat.get_data()
-                        right_bgra = right_mat.get_data()
-                        left_rgb = bgra_to_rgb(left_bgra)
-                        right_rgb = bgra_to_rgb(right_bgra)
-                        print(f"time_gap: {time.time() - self.last_cam_retrieve_time if self.last_cam_retrieve_time else 0}")
+            def get_last_obs():
+                while True:
+                    # time.sleep(2)
+                    if self.last_cam_retrieve_time is None:
                         self.last_cam_retrieve_time = time.time()
-                        return {"left_rgb": left_rgb, "right_rgb": right_rgb}
+                    while time.time() - self.last_cam_retrieve_time < (1.0 / self.args.fps):
+                        time.sleep(0.0001)                     
+                    # --- Retrieve rectified left/right images (BGRA by default)
+                    left_mat, right_mat = sl.Mat(), sl.Mat()
+                    cam.retrieve_image(left_mat, sl.VIEW.LEFT)    # rectified, undistorted
+                    cam.retrieve_image(right_mat, sl.VIEW.RIGHT)  # rectified, undistorted
+                    left_bgra = left_mat.get_data()
+                    right_bgra = right_mat.get_data()
+                    left_rgb = bgra_to_rgb(left_bgra)
+                    right_rgb = bgra_to_rgb(right_bgra)
+                    # import pdb; pdb.set_trace()
+                    print(f"time_gap: {time.time() - self.last_cam_retrieve_time if self.last_cam_retrieve_time else 0}")
+                    self.last_cam_retrieve_time = time.time()
+                    return {"color": left_rgb, "right_rgb": right_rgb} # color is left_rgb
 
         elif camera_type in ["webcam", "gopro"]:
             # Always use the camera address for webcam/gopro
@@ -215,7 +224,7 @@ class cam_node_base():
             print(f"OpenCV camera initialized successfully for {camera_type}")
             
             def get_last_obs():
-
+                
                 while True:
                     # Reading new frames too quickly causes latency spikes
                     if self.last_cam_retrieve_time is None:
@@ -256,8 +265,7 @@ class cam_node_base():
         
         try:
             while True:
-                start_time = time.time_ns()
-
+                # start_time = time.time_ns()
                 # Get frame from camera
                 capture = get_last_obs()
                 if capture is None:
@@ -310,9 +318,11 @@ class cam_node_base():
                 img_counter = img_counter % MAX_IMG_NUM
 
                 # Visualization
+                # import ipdb; ipdb.set_trace()
                 if self.args.visualization:
                     if "color" in imgs:
                         display_img = imgs["color"]
+                        # import pdb;pdb.set_trace()
                         if self.args.rgb_convention == "rgb":
                             display_img = cv2.cvtColor(display_img, cv2.COLOR_RGB2BGR)
 

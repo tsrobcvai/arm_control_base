@@ -115,7 +115,7 @@ def main():
         # Convert to RGB (3 channels)
         left_rgb = bgra_to_rgb(left_bgra)
         right_rgb = bgra_to_rgb(right_bgra)
-
+        # import pdb; pdb.set_trace()
         # Save as PNG (3 channels)
         iio.imwrite(out_left.as_posix(), left_rgb)
         iio.imwrite(out_right.as_posix(), right_rgb)
