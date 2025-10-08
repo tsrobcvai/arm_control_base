@@ -28,6 +28,7 @@ class cam_node_base():
         parser.add_argument("--camera-address", default="/dev/video0", type=str)
         parser.add_argument("--use-rgb", action="store_true")
         parser.add_argument("--use-depth", action="store_true")
+        parser.add_argument("--use-stereo", action="store_true")
         
         parser.add_argument("--img-w", default=640, type=int)
         parser.add_argument("--img-h", default=480, type=int)
@@ -87,7 +88,7 @@ class cam_node_base():
         )
 
         # Node configuration
-        node_config = EasyDict(use_color=self.args.use_rgb, use_depth=self.args.use_depth)
+        node_config = EasyDict(use_color=self.args.use_rgb, use_depth=self.args.use_depth, use_stereo=self.args.use_stereo)
         
         # Initialize camera
         pipeline = None
@@ -179,12 +180,11 @@ class cam_node_base():
                 print(f"[ERROR] ZED open failed: {status}. Is the camera connected and SDK installed?", file=sys.stderr)
                 sys.exit(1)
             runtime = sl.RuntimeParameters()
-            for _ in range(8):
-                if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
-                    time.sleep(0.01)
+            # for _ in range(8):
+
             # Final grab for capture
-            if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
-                raise RuntimeError("Failed to grab a frame from ZED.")
+            # if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
+            #     raise RuntimeError("Failed to grab a frame from ZED.")
 
             def get_last_obs():
                 while True:
@@ -192,7 +192,9 @@ class cam_node_base():
                     if self.last_cam_retrieve_time is None:
                         self.last_cam_retrieve_time = time.time()
                     while time.time() - self.last_cam_retrieve_time < (1.0 / self.args.fps):
-                        time.sleep(0.0001)                     
+                        time.sleep(0.0001)        
+                    if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
+                        time.sleep(0.001)  
                     # --- Retrieve rectified left/right images (BGRA by default)
                     left_mat, right_mat = sl.Mat(), sl.Mat()
                     cam.retrieve_image(left_mat, sl.VIEW.LEFT)    # rectified, undistorted
@@ -204,7 +206,7 @@ class cam_node_base():
                     # import pdb; pdb.set_trace()
                     print(f"time_gap: {time.time() - self.last_cam_retrieve_time if self.last_cam_retrieve_time else 0}")
                     self.last_cam_retrieve_time = time.time()
-                    return {"color": left_rgb, "right_rgb": right_rgb} # color is left_rgb
+                    return {"color": left_rgb, "right_color": right_rgb} # color is left_rgb
 
         elif camera_type in ["webcam", "gopro"]:
             # Always use the camera address for webcam/gopro
@@ -303,6 +305,16 @@ class cam_node_base():
                     
                     color_img_name = f"{save_dir}/color_{img_counter:09d}"
                     img_info["color_img_name"] = color_img_name
+                # import ipdb; ipdb.set_trace()
+                if node_config.use_stereo and "right_color" in capture and capture["right_color"] is not None:
+                    right_color_img = capture["right_color"]
+                    if self.args.rgb_convention == "rgb":
+                        imgs["right_color"] = cv2.cvtColor(right_color_img, cv2.COLOR_BGR2RGB)
+                    else:
+                        imgs["right_color"] = right_color_img
+
+                    right_color_img_name = f"{save_dir}/right_color_{img_counter:09d}"
+                    img_info["right_color_img_name"] = right_color_img_name
                         
                 if node_config.use_depth and "depth" in capture and capture["depth"] is not None:
                     imgs["depth"] = capture["depth"]
@@ -331,6 +343,16 @@ class cam_node_base():
                         new_size = (int(w*scale), int(h*scale))
                         display_img = cv2.resize(display_img, new_size)
                         cv2.imshow(f"Camera {camera_name}", display_img)
+
+                    # if "right_color" in imgs:
+                    #     display_img = imgs["right_color"]
+                    #     if self.args.rgb_convention == "rgb":
+                    #         display_img = cv2.cvtColor(display_img, cv2.COLOR_RGB2BGR)
+                    #     scale = 0.75  # half size
+                    #     h, w = display_img.shape[:2]
+                    #     new_size = (int(w*scale), int(h*scale))
+                    #     display_img = cv2.resize(display_img, new_size)
+                    #     cv2.imshow(f"Right Camera {camera_name}", display_img)
                         
                     if "depth" in imgs:
                         depth_display = (imgs["depth"] * 0.001).astype(np.float32)

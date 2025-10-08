@@ -53,6 +53,12 @@ class CameraRedisPubInterface:
             shape = struct.pack(">III", h, w, c)
             encoded_color = shape + imgs["color"].tobytes()
             self.img_redis.set(f"{self.camera_name}::last_img_color", encoded_color)
+        # import ipdb; ipdb.set_trace()
+        if "right_color" in imgs:
+            h, w, c = imgs["right_color"].shape
+            shape = struct.pack(">III", h, w, c)
+            encoded_right_color = shape + imgs["right_color"].tobytes()
+            self.img_redis.set(f"{self.camera_name}::last_right_color", encoded_right_color)
         if "depth" in imgs:
             h, w = imgs["depth"].shape
             shape = struct.pack(">II", h, w)
@@ -82,6 +88,7 @@ class CameraRedisSubInterface:
         # camera_type="rs",  # "rs" or "k4a
         use_color=True,
         use_depth=False,
+        use_stereo=False,
         custom_camera_name=None,
     ):
         self.redis_host = redis_host
@@ -105,7 +112,7 @@ class CameraRedisSubInterface:
 
         self.use_color = use_color
         self.use_depth = use_depth
-
+        self.use_stereo = use_stereo
         self.camera_type = None
 
     def start(self, timeout=5):
@@ -147,17 +154,21 @@ class CameraRedisSubInterface:
     def get_img(self):
         img_color = None
         img_depth = None
+        img_right_color = None
         if self.use_color:
             color_buffer = self.img_redis.get(f"{self.camera_name}::last_img_color")
             h, w, c = struct.unpack(">III", color_buffer[:12])
             img_color = np.frombuffer(color_buffer[12:], dtype=np.uint8).reshape(h, w, c)
-
+        if self.use_stereo:
+            color_buffer = self.img_redis.get(f"{self.camera_name}::last_right_color")
+            h, w, c = struct.unpack(">III", color_buffer[:12])
+            img_right_color = np.frombuffer(color_buffer[12:], dtype=np.uint8).reshape(h, w, c)
         if self.use_depth:
             depth_buffer = self.img_redis.get(f"{self.camera_name}::last_img_depth")
             h, w = struct.unpack(">II", depth_buffer[:8])
             img_depth = np.frombuffer(depth_buffer[8:], dtype=np.uint16).reshape(h, w)
 
-        return {"color": img_color, "depth": img_depth}
+        return {"color": img_color, "depth": img_depth, "right_color": img_right_color}
 
     def finish(self):
         for _ in range(10):
