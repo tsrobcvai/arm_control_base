@@ -1,163 +1,85 @@
-import os
-import re
-import time
 from multiprocessing.connection import Listener
-from typing import List, Optional
-
-import matplotlib
-# Try to use an interactive backend; fall back to Agg if display is not available
-try:
-    matplotlib.use("TkAgg")
-except Exception:
-    matplotlib.use("Agg")
+from tarfile import data_filter
+import torch
+from docutils.nodes import address
+import time
+import numpy as np
 import matplotlib.pyplot as plt
+from multiprocessing.connection import Client
 
-
-class FTMonitorServer:
-    def __init__(self, address: tuple, authkey: bytes):
+class PlotFTClient():
+    def __init__(self, address = ('localhost', 6000), authkey = b"secret"):
         self.address = address
         self.authkey = authkey
+        self.conn = Client(self.address, authkey=self.authkey)  # persistent
 
-        # Buffers
-        self.timestamps: List[float] = []
-        self.values: List[List[float]] = [[], [], [], [], [], []]  # Fx, Fy, Fz, Tx, Ty, Tz
-        self.start_time: Optional[float] = None
+    def send_data(self, message):
+        self.conn.send(message)
 
-        # Matplotlib figure setup
-        self.fig = None
-        self.axes = None
-        self.lines = None
-        self.max_window_seconds = 120.0  # keep last 2 minutes for display
-        self.channel_names = ["Fx", "Fy", "Fz", "Tx", "Ty", "Tz"]
-
-    def _ensure_figure(self):
-        if self.fig is not None:
-            return
-        self.fig, self.axes = plt.subplots(3, 2, figsize=(10, 6), constrained_layout=True)
-        self.lines = []
-        for idx, ax in enumerate(self.axes.flat):
-            line, = ax.plot([], [], lw=1.5)
-            ax.grid(True, alpha=0.3)
-            ax.set_xlabel("Time (s)")
-            ax.set_ylabel(self.channel_names[idx])
-            self.lines.append(line)
+class PlotFTServer():
+    def __init__(self,address, authkey):
+        self.address = address
+        self.authkey = authkey
+        self.init_plot()
+    
+    def init_plot(self):
+        # Initialize time series buffers
+        self.timesteps = []
+        self.values = [[] for _ in range(6)]  # Fx, Fy, Fz, Tx, Ty, Tz
+        self.labels = ["Fx", "Fy", "Fz", "Tx", "Ty", "Tz"]
+        # Setup matplotlib for live updating
         plt.ion()
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        self.fig, axes = plt.subplots(2, 3, figsize=(12, 6), sharex=True)
+        self.axes = axes.ravel()
+        self.lines = []
+        for i, ax in enumerate(self.axes):
+            line, = ax.plot([], [], lw=1.5)
+            ax.set_ylabel(self.labels[i])
+            ax.grid(True, linestyle='--', alpha=0.4)
+            self.lines.append(line)
+        self.axes[0].set_title("Force/Torque over time")
+        for ax in self.axes[3:]:
+            ax.set_xlabel("timestep")
+        self.fig.tight_layout()
 
-    def _update_buffers(self, t_abs: float, ft_values: List[float]):
-        if self.start_time is None:
-            self.start_time = t_abs
-        t_rel = t_abs - self.start_time
-        self.timestamps.append(t_rel)
+    def plot_ft(self, data):
+        data = np.asarray(data)
+        print(f"FT data: {data}")
+        # print(f"FT data: {data}")
+        if data.size != 6:
+            return data
+        # Update buffers
+        t = len(self.timesteps)
+        self.timesteps.append(t)
         for i in range(6):
-            self.values[i].append(float(ft_values[i]))
-
-        # Trim buffers to max window
-        while self.timestamps and (self.timestamps[-1] - self.timestamps[0]) > self.max_window_seconds:
-            self.timestamps.pop(0)
-            for i in range(6):
-                self.values[i].pop(0)
-
-    def _redraw(self):
-        if self.fig is None:
-            return
-        for i, ax in enumerate(self.axes.flat):
-            self.lines[i].set_data(self.timestamps, self.values[i])
-            # Update axes limits
-            if self.timestamps:
-                ax.set_xlim(self.timestamps[0], max(self.timestamps[-1], self.timestamps[0] + 1.0))
-                y_vals = self.values[i]
-                y_min = min(y_vals)
-                y_max = max(y_vals)
-                if y_min == y_max:
-                    pad = 1.0 if y_max == 0.0 else abs(y_max) * 0.1
-                    ax.set_ylim(y_min - pad, y_max + pad)
-                else:
-                    pad = (y_max - y_min) * 0.1
-                    ax.set_ylim(y_min - pad, y_max + pad)
-                # Title with max absolute value
-                max_abs = max((abs(v) for v in y_vals), default=0.0)
-                ax.set_title(f"{self.channel_names[i]}  max |val| = {max_abs:.2f}")
-            else:
-                ax.set_xlim(0, 1)
-                ax.set_ylim(-1, 1)
-        try:
-            self.fig.canvas.draw()
-            self.fig.canvas.flush_events()
-            plt.pause(0.001)
-        except Exception:
-            # Headless mode; ignore display errors
-            pass
-
-    def _next_id(self, save_dir: str) -> str:
-        os.makedirs(save_dir, exist_ok=True)
-        regex = re.compile(r"FT_(\d{3})\.jpg$")
-        max_id = -1
-        try:
-            for fname in os.listdir(save_dir):
-                m = regex.match(fname)
-                if m:
-                    idx = int(m.group(1))
-                    if idx > max_id:
-                        max_id = idx
-        except FileNotFoundError:
-            pass
-        return f"{max_id + 1:03d}"
-
-    def _save_current_figure(self, save_dir: str):
-        if not save_dir:
-            return
-        img_id = self._next_id(save_dir)
-        out_path = os.path.join(save_dir, f"FT_{img_id}.jpg")
-        try:
-            # Keep file reasonably small
-            self.fig.savefig(
-                out_path,
-                dpi=80,
-                bbox_inches="tight",
-                pad_inches=0.05,
-                facecolor="white",
-                pil_kwargs={"quality": 70, "optimize": True},
-            )
-            print(f"Saved FT plot: {out_path}")
-        except Exception as e:
-            print(f"Failed to save FT plot to {out_path}: {e}")
+            self.values[i].append(float(data[i]))
+        # Refresh plot lines
+        for i in range(6):
+            self.lines[i].set_data(self.timesteps, self.values[i])
+            self.axes[i].relim()
+            self.axes[i].autoscale_view()
+        self.fig.canvas.draw_idle()
+        self.fig.canvas.flush_events()
+        return data
 
     def run(self):
         with Listener(self.address, authkey=self.authkey) as listener:
-            print("FT monitor server is running at", self.address)
+            print("Inference server is running at", self.address)
             while True:
                 conn = listener.accept()
                 print("Connected to client:", listener.last_accepted)
                 try:
-                    self._ensure_figure()
                     while True:
-                        message = conn.recv()
-                        # Expected message format:
-                        # {"type": "ft", "count": int, "time": float, "ft": [6 floats],
-                        #  "save": bool, "save_path": str or None}
-                        # print("Received message:", message)
-                        # print("Received time cost:", time.time()-message["time"])
-                        if not isinstance(message, dict) or message.get("type") != "ft":
-                            continue
-                        ft_vals = message.get("ft", None)
-                        t_now = float(message.get("time", time.time()))
-                        if ft_vals is None or len(ft_vals) != 6:
-                            continue
-                        self._update_buffers(t_now, ft_vals)
-                        self._redraw()
-                        if message.get("save") and message.get("save_path"):
-                            self._save_current_figure(message.get("save_path"))
-                        # We intentionally do not send any response to keep the pipeline lightweight
-                except EOFError:
-                    print("Client disconnected.")
+                        message = conn.recv()  # Receive image data
+                        print("Server received!")
+                        print(f"Delivery running time: {time.time() - message['time']}")
+                        # result = self.plot_ft(message["ft_data"]) 
+                        # conn.send(result)
                 except Exception as e:
-                    print("Connection closed due to error:", e)
+                    print("Connection closed:", e)
                 finally:
                     conn.close()
 
-
-if __name__ == "__main__":
-    server = FTMonitorServer(("localhost", 5000), authkey=b"secret")
+if __name__ == '__main__':
+    server = PlotFTServer(address=('localhost', 6002), authkey=b'secret')
     server.run()

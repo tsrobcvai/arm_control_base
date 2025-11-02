@@ -25,6 +25,16 @@ git clone https://github.com/xArm-Developer/xArm-Python-SDK.git
 cd xArm-Python-SDK
 pip install -e .
 ```
+## How to read FT sensor with high frequency
+```
+# show ft reading
+python arm_control_base/ft_sensor_base/ft_reader.py 
+```
+```
+# keep ft_reader running
+python arm_control_base/ft_sensor_base/ft_reader.py --server_mode
+```
+Then, receive ft reading, refer to [ft_monitor_server](arm_control_base/scripts/ft_monitor_server.py)
 
 ## Teleoperation using Meta quest 2
 ### Installation
