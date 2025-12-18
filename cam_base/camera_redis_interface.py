@@ -156,6 +156,7 @@ class CameraRedisSubInterface:
         img_depth = None
         img_right_color = None
         if self.use_color:
+            # import ipdb; ipdb.set_trace()
             color_buffer = self.img_redis.get(f"{self.camera_name}::last_img_color")
             h, w, c = struct.unpack(">III", color_buffer[:12])
             img_color = np.frombuffer(color_buffer[12:], dtype=np.uint8).reshape(h, w, c)

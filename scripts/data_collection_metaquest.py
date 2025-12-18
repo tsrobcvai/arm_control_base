@@ -15,7 +15,7 @@ import hydra
 from omegaconf import DictConfig
 from cam_base.camera_redis_interface import CameraRedisSubInterface
 from xarm.wrapper import XArmAPI
-from ft_sensor_base.read_ft import robot_port_reader
+from ft_sensor_base.ft_reader import robot_port_reader
 try:
     from arm_control_base.utils import YamlConfig
 except ImportError:
@@ -139,7 +139,6 @@ class UfactoryDataCollection():
         if self.FT_option:
             arm.ft_sensor_enable(1)
             if self.FT_initial_zero:
-                # import pdb;pdb.set_trace()
                 arm.ft_sensor_set_zero()
             time.sleep(0.2)
             arm.ft_sensor_app_set(1)

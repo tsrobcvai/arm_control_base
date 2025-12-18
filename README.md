@@ -16,6 +16,10 @@ conda create -n ufact python=3.9
 conda activate ufact
 conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -y
 pip install -r ./requirements.txt
+conda install -y -c conda-forge libjpeg-turbo
+conda install -y redis
+conda install -y redis-server
+redis-server --daemonize yes
 ```
 
 Install ufactory API (source code [XArm Python SDK](https://github.com/xArm-Developer/xArm-Python-SDK/tree/a54b2fd1922d3245f1f78c8e518871d4760ead1c))
@@ -34,7 +38,7 @@ python arm_control_base/ft_sensor_base/ft_reader.py
 # keep ft_reader running
 python arm_control_base/ft_sensor_base/ft_reader.py --server_mode
 ```
-Then, receive ft reading, refer to [ft_monitor_server](arm_control_base/scripts/ft_monitor_server.py)
+Then, receive ft reading, refer to [ft_monitor_server](arm_control_base/scripts/data_collection_metaquest.py)
 
 ## Teleoperation using Meta quest 2
 ### Installation

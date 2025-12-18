@@ -1,0 +1,7 @@
+scipy
+pyserial>=3.4
+matplotlib
+pyyaml
+redis
+easydict
+hydra-core

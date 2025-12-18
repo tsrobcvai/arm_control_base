@@ -11,6 +11,7 @@ class PlotFTClient():
     def __init__(self, address = ('localhost', 6000), authkey = b"secret"):
         self.address = address
         self.authkey = authkey
+        import ipdb; ipdb.set_trace()
         self.conn = Client(self.address, authkey=self.authkey)  # persistent
 
     def send_data(self, message):

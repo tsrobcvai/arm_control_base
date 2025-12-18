@@ -161,7 +161,7 @@ class cam_node_base():
 
             # ZED camera
             import pyzed.sl as sl
-
+            # import ipdb; ipdb.set_trace()
             init = sl.InitParameters()
             init.depth_mode = sl.DEPTH_MODE.NONE
             init.coordinate_units = sl.UNIT.METER
@@ -171,11 +171,16 @@ class cam_node_base():
             elif self.args.img_w == 1280:
                 init.camera_resolution = sl.RESOLUTION.HD720
                 init.camera_fps = self.args.fps
+            elif self.args.img_w == 640:
+                init.camera_resolution = sl.RESOLUTION.VGA
+                init.camera_fps = self.args.fps
             else:
                 raise ValueError(f"Unsupported resolution: {self.args.img_w}")
 
             cam = sl.Camera()
             status = cam.open(init)
+
+
             if status != sl.ERROR_CODE.SUCCESS:
                 print(f"[ERROR] ZED open failed: {status}. Is the camera connected and SDK installed?", file=sys.stderr)
                 sys.exit(1)
@@ -185,7 +190,8 @@ class cam_node_base():
             # Final grab for capture
             # if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
             #     raise RuntimeError("Failed to grab a frame from ZED.")
-
+            # cam.set_camera_settings(sl.VIDEO_SETTINGS.EXPOSURE, 100)
+            # cam.set_camera_settings(sl.VIDEO_SETTINGS.GAIN, 10)
             def get_last_obs():
                 while True:
                     # time.sleep(2)
@@ -199,6 +205,7 @@ class cam_node_base():
                     left_mat, right_mat = sl.Mat(), sl.Mat()
                     cam.retrieve_image(left_mat, sl.VIEW.LEFT)    # rectified, undistorted
                     cam.retrieve_image(right_mat, sl.VIEW.RIGHT)  # rectified, undistorted
+                    # import ipdb; ipdb.set_trace()
                     left_bgra = left_mat.get_data()
                     right_bgra = right_mat.get_data()
                     left_rgb = bgra_to_rgb(left_bgra)

@@ -81,7 +81,10 @@ def main():
     # Units for baseline (meters)
     init.coordinate_units = sl.UNIT.METER
     # Use default color stream resolution/fps (change if you want)
-    init.camera_resolution = sl.RESOLUTION.HD1080
+    # init.camera_resolution = sl.RESOLUTION.HD1080
+    init.camera_resolution = sl.RESOLUTION.HD720
+
+
     init.camera_fps = 15
 
     cam = sl.Camera()
@@ -90,12 +93,22 @@ def main():
         print(f"[ERROR] ZED open failed: {status}. Is the camera connected and SDK installed?", file=sys.stderr)
         sys.exit(1)
 
+    # --- Adjust camera settings (reduce brightness/exposure)
+    print("Adjusting camera settings for brightness...")
+    # Brightness range: [0, 8], default 4
+    # cam.set_camera_settings(sl.VIDEO_SETTINGS.BRIGHTNESS, 2)
+    # cam.set_camera_settings(sl.VIDEO_SETTINGS.CONTRAST, 4)
+    # cam.set_camera_settings(sl.VIDEO_SETTINGS.SATURATION, 4)
+    # If still too bright, try manual exposure (range 0-100, default -1 for auto)
+    cam.set_camera_settings(sl.VIDEO_SETTINGS.EXPOSURE, 50)
+    cam.set_camera_settings(sl.VIDEO_SETTINGS.GAIN, 10)
+
     try:
         # Let auto-exposure stabilize a bit (optional but helpful)
         runtime = sl.RuntimeParameters()
         for _ in range(8):
             if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
-                time.sleep(0.01)
+                time.sleep(0.02)
 
         # Final grab for capture
         if cam.grab(runtime) != sl.ERROR_CODE.SUCCESS:
@@ -124,6 +137,7 @@ def main():
         info = cam.get_camera_information()
         # import ipdb; ipdb.set_trace()
         calib = info.camera_configuration.calibration_parameters # SDK5.0
+        # calib = info.camera_configuration.calibration_parameters_raw # SDK5.0, raw data from factory
         # calib = info.calibration_parameters # SDK4.0
         left_cam = calib.left_cam  # rectified left intrinsics
 

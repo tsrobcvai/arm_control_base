@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: arm_control_base
+Version: 0.0.1
+Requires-Dist: scipy
+Requires-Dist: pyserial>=3.4
+Requires-Dist: matplotlib
+Requires-Dist: pyyaml
+Requires-Dist: redis
+Requires-Dist: easydict
+Requires-Dist: hydra-core
+Dynamic: requires-dist
